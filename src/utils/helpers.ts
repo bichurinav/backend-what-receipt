@@ -60,3 +60,8 @@ export const searchMatches = (array: string[] = [], el: string) => {
 
   return result;
 };
+
+export const cutLastChars = (str: string, countCut: number = 1): string => {
+  if (typeof str !== "string") return str;
+  return [...str].slice(0, -countCut).join("");
+};

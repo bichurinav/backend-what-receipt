@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 import fs from "fs/promises";
 import path from "path";
 import cors from "cors";
-import { searchMatches } from "./utils/helpers";
+import { searchMatches, cutLastChars } from "./utils/helpers";
 import { IReceipt, IReceiptMatched, cacheReceipts } from "./types/receipts";
 // import ParserPovar from "./modules/parser/ParserPovar";
 
@@ -59,9 +59,17 @@ app.get("/api/compositions", async (req: Request, res: Response) => {
 
       const result = searchMatches(compositions, searchWord as string);
 
-      const data = result.filter((composition) => {
-        return composition.match(new RegExp(searchWord as string, "ig"));
+      let data = result.filter((composition) => {
+        return composition.match(
+          new RegExp(`^(.+?\\s)?${searchWord}(\\s+.+)?$`, "i")
+        );
       });
+
+      if (!data.length) {
+        data = result.filter((composition) => {
+          return composition.match(new RegExp(searchWord as string, "i"));
+        });
+      }
 
       res.status(200).json({ data, total: data.length });
     } else {
@@ -87,11 +95,15 @@ app.get("/api/receipts/:category", (req: Request, res: Response) => {
     return;
   }
 
-  if (Array.isArray(compositions) && Boolean(compositions)) {
-    if (cacheReceipts[category].has(compositions.join(""))) {
+  const userCompositions = !Array.isArray(compositions)
+    ? [compositions]
+    : compositions;
+
+  if (Boolean(userCompositions[0])) {
+    if (cacheReceipts[category].has(userCompositions.join(""))) {
       res
         .status(200)
-        .json({ data: cacheReceipts[category].get(compositions.join("")) });
+        .json({ data: cacheReceipts[category].get(userCompositions.join("")) });
       return;
     }
 
@@ -105,20 +117,70 @@ app.get("/api/receipts/:category", (req: Request, res: Response) => {
 
         receipts.forEach((receipt: IReceipt) => {
           let matches = 0;
-          const copyCompositions = [...compositions] as string[];
+          const compositions = [...userCompositions] as string[];
 
-          while (copyCompositions.length !== 0) {
-            let value = copyCompositions.pop();
-            value = [...value].slice(0, -1).join("");
-            receipt.compositions.forEach((c) => {
-              const composition = [...c].slice(0, -1).join("");
-              if (Array.isArray(composition.match(new RegExp(value, "ig")))) {
+          while (compositions.length !== 0) {
+            let userComposition = compositions.pop();
+
+            const wordsUserComposition = userComposition.split(" ");
+
+            receipt.compositions.forEach((receiptComposition) => {
+              if (
+                receiptComposition.match(/\,|\sили\s|\sи\s/g) &&
+                Array.isArray(
+                  receiptComposition.match(new RegExp(userComposition, "ig"))
+                )
+              ) {
                 matches += 1;
+                return;
+              }
+
+              if (
+                wordsUserComposition.length === 2 &&
+                Array.isArray(
+                  receiptComposition.match(
+                    new RegExp(
+                      `${wordsUserComposition[0]}\\s${wordsUserComposition[1]}|${wordsUserComposition[1]}\\s${wordsUserComposition[0]}`,
+                      "i"
+                    )
+                  )
+                )
+              ) {
+                matches += 1;
+                return;
+              }
+
+              if (wordsUserComposition.length === 3) {
+                const strReg =
+                  `${wordsUserComposition[0]}\\s${wordsUserComposition[1]}\\s${wordsUserComposition[2]}|
+                ${wordsUserComposition[1]}\\s${wordsUserComposition[0]}\\s${wordsUserComposition[2]}|
+                ${wordsUserComposition[2]}\\s${wordsUserComposition[1]}\\s${wordsUserComposition[0]}|
+                ${wordsUserComposition[2]}\\s${wordsUserComposition[0]}\\s${wordsUserComposition[1]}|
+                ${wordsUserComposition[1]}\\s${wordsUserComposition[2]}\\s${wordsUserComposition[0]}|
+                `.replace(/\n|\s/g, "");
+                if (
+                  Array.isArray(
+                    receiptComposition.match(new RegExp(strReg, "ig"))
+                  )
+                )
+                  matches += 1;
+                return;
+              }
+
+              if (
+                Array.isArray(
+                  receiptComposition.match(new RegExp(userComposition, "ig"))
+                )
+              ) {
+                matches += 1;
+                return;
               }
             });
           }
 
-          if (matches > 1) {
+          const compositionsLength = receipt.compositions.length;
+
+          if (matches !== 0 && compositionsLength - matches < 3) {
             matchesReceipts.push({ ...receipt, matches });
           }
         });
@@ -127,7 +189,7 @@ app.get("/api/receipts/:category", (req: Request, res: Response) => {
           .sort((a, b) => b.matches - a.matches)
           .splice(0, 60);
 
-        cacheReceipts[category].set(compositions.join(""), data);
+        cacheReceipts[category].set(userCompositions.join(""), data);
 
         res.status(200).json({ data, total: data.length });
       })
