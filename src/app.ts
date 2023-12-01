@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 import fs from "fs/promises";
 import path from "path";
 import cors from "cors";
-import { searchMatches, cutLastChars } from "./utils/helpers";
+import { searchMatches, getCountMatchProducts } from "./utils/helpers";
 import { IReceipt, IReceiptMatched, cacheReceipts } from "./types/receipts";
 // import ParserPovar from "./modules/parser/ParserPovar";
 
@@ -23,16 +23,6 @@ app.use(
 );
 
 const port = process.env.PORT;
-
-// Временное решение
-// TODO: реализовать через MongoDB
-const cacheReceipts: cacheReceipts = {
-  goryachie_bliuda: new Map(),
-  salad: new Map(),
-  soup: new Map(),
-  sousy: new Map(),
-  zakuski: new Map(),
-};
 
 const rootPath = path.resolve();
 
@@ -84,10 +74,11 @@ app.get("/api/compositions", async (req: Request, res: Response) => {
 });
 
 app.get("/api/receipts/:category", (req: Request, res: Response) => {
-  const { compositions } = req.query;
+  const { compositions, mode } = req.query;
   const { category } = req.params;
+  const categories = ["goryachie_bliuda", "salad", "soup", "sousy", "zakuski"];
 
-  if (!cacheReceipts[category]) {
+  if (!categories.includes(category)) {
     res.status(400).json({
       message: `Данная категория не существует: ${category}`,
       data: [],
@@ -100,13 +91,6 @@ app.get("/api/receipts/:category", (req: Request, res: Response) => {
     : compositions;
 
   if (Boolean(userCompositions[0])) {
-    if (cacheReceipts[category].has(userCompositions.join(""))) {
-      res
-        .status(200)
-        .json({ data: cacheReceipts[category].get(userCompositions.join("")) });
-      return;
-    }
-
     fs.readFile(path.join(pathes.db, `${category}.json`), {
       encoding: "utf-8",
     })
@@ -116,80 +100,23 @@ app.get("/api/receipts/:category", (req: Request, res: Response) => {
         const matchesReceipts: IReceiptMatched[] = [];
 
         receipts.forEach((receipt: IReceipt) => {
-          let matches = 0;
-          const compositions = [...userCompositions] as string[];
+          const matches = getCountMatchProducts(
+            userCompositions as string[],
+            receipt.compositions
+          );
 
-          while (compositions.length !== 0) {
-            let userComposition = compositions.pop();
-
-            const wordsUserComposition = userComposition.split(" ");
-
-            receipt.compositions.forEach((receiptComposition) => {
-              if (
-                receiptComposition.match(/\,|\sили\s|\sи\s/g) &&
-                Array.isArray(
-                  receiptComposition.match(new RegExp(userComposition, "ig"))
-                )
-              ) {
-                matches += 1;
-                return;
-              }
-
-              if (
-                wordsUserComposition.length === 2 &&
-                Array.isArray(
-                  receiptComposition.match(
-                    new RegExp(
-                      `${wordsUserComposition[0]}\\s${wordsUserComposition[1]}|${wordsUserComposition[1]}\\s${wordsUserComposition[0]}`,
-                      "i"
-                    )
-                  )
-                )
-              ) {
-                matches += 1;
-                return;
-              }
-
-              if (wordsUserComposition.length === 3) {
-                const strReg =
-                  `${wordsUserComposition[0]}\\s${wordsUserComposition[1]}\\s${wordsUserComposition[2]}|
-                ${wordsUserComposition[1]}\\s${wordsUserComposition[0]}\\s${wordsUserComposition[2]}|
-                ${wordsUserComposition[2]}\\s${wordsUserComposition[1]}\\s${wordsUserComposition[0]}|
-                ${wordsUserComposition[2]}\\s${wordsUserComposition[0]}\\s${wordsUserComposition[1]}|
-                ${wordsUserComposition[1]}\\s${wordsUserComposition[2]}\\s${wordsUserComposition[0]}|
-                `.replace(/\n|\s/g, "");
-                if (
-                  Array.isArray(
-                    receiptComposition.match(new RegExp(strReg, "ig"))
-                  )
-                )
-                  matches += 1;
-                return;
-              }
-
-              if (
-                Array.isArray(
-                  receiptComposition.match(new RegExp(userComposition, "ig"))
-                )
-              ) {
-                matches += 1;
-                return;
-              }
-            });
-          }
-
-          const compositionsLength = receipt.compositions.length;
-
-          if (matches !== 0 && compositionsLength - matches < 3) {
-            matchesReceipts.push({ ...receipt, matches });
+          if (mode === "strict") {
+            if (matches !== 0 && receipt.compositions.length - matches < 3)
+              matchesReceipts.push({ ...receipt, matches });
+          } else {
+            if (matches !== 0 && matches > 0)
+              matchesReceipts.push({ ...receipt, matches });
           }
         });
 
         const data = matchesReceipts
           .sort((a, b) => b.matches - a.matches)
           .splice(0, 60);
-
-        cacheReceipts[category].set(userCompositions.join(""), data);
 
         res.status(200).json({ data, total: data.length });
       })

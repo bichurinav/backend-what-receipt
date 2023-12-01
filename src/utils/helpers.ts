@@ -61,7 +61,72 @@ export const searchMatches = (array: string[] = [], el: string) => {
   return result;
 };
 
-export const cutLastChars = (str: string, countCut: number = 1): string => {
-  if (typeof str !== "string") return str;
-  return [...str].slice(0, -countCut).join("");
+// export const cutLastChars = (str: string, countCut: number = 1): string => {
+//   if (typeof str !== "string") return str;
+//   return [...str].slice(0, -countCut).join("");
+// };
+
+export const getCountMatchProducts = (
+  userCompositions: string[],
+  receiptCompositions: string[]
+): number => {
+  let matches = 0;
+  const compositions = [...userCompositions] as string[];
+
+  while (compositions.length !== 0) {
+    let userComposition = compositions.pop();
+
+    const wordsUserComposition = userComposition.split(" ");
+
+    receiptCompositions.forEach((receiptComposition) => {
+      if (
+        receiptComposition.match(/\,|\sили\s|\sи\s/g) &&
+        Array.isArray(
+          receiptComposition.match(new RegExp(userComposition, "ig"))
+        )
+      ) {
+        matches += 1;
+        return;
+      }
+
+      if (
+        wordsUserComposition.length === 2 &&
+        Array.isArray(
+          receiptComposition.match(
+            new RegExp(
+              `${wordsUserComposition[0]}\\s${wordsUserComposition[1]}|${wordsUserComposition[1]}\\s${wordsUserComposition[0]}`,
+              "i"
+            )
+          )
+        )
+      ) {
+        matches += 1;
+        return;
+      }
+
+      if (wordsUserComposition.length === 3) {
+        const strReg =
+          `${wordsUserComposition[0]}\\s${wordsUserComposition[1]}\\s${wordsUserComposition[2]}|
+        ${wordsUserComposition[1]}\\s${wordsUserComposition[0]}\\s${wordsUserComposition[2]}|
+        ${wordsUserComposition[2]}\\s${wordsUserComposition[1]}\\s${wordsUserComposition[0]}|
+        ${wordsUserComposition[2]}\\s${wordsUserComposition[0]}\\s${wordsUserComposition[1]}|
+        ${wordsUserComposition[1]}\\s${wordsUserComposition[2]}\\s${wordsUserComposition[0]}|
+        `.replace(/\n|\s/g, "");
+        if (Array.isArray(receiptComposition.match(new RegExp(strReg, "ig"))))
+          matches += 1;
+        return;
+      }
+
+      if (
+        Array.isArray(
+          receiptComposition.match(new RegExp(userComposition, "ig"))
+        )
+      ) {
+        matches += 1;
+        return;
+      }
+    });
+  }
+
+  return matches;
 };
