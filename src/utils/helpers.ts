@@ -119,7 +119,9 @@ export const getCountMatchProducts = (
 
       if (
         Array.isArray(
-          receiptComposition.match(new RegExp(userComposition, "ig"))
+          receiptComposition.match(
+            new RegExp(`^(.+?\\s)?${userComposition}(\\s+.+)?$`, "i")
+          )
         )
       ) {
         matches += 1;
