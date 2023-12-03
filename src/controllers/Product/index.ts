@@ -3,10 +3,9 @@ import fs from "fs/promises";
 import paths from "../../paths";
 import { searchMatches } from "./helpers";
 
-export default new (class ProductController {
-  products: string[];
-  dbCollection = "products";
+const dbCollection = "products";
 
+export default new (class ProductController {
   getProducts(req: Request, res: Response) {
     const { search: searchWord } = req.query;
 
@@ -18,15 +17,12 @@ export default new (class ProductController {
       return;
     }
 
-    fs.readFile(paths.db_item(this.dbCollection), {
+    fs.readFile(paths.db_item(dbCollection), {
       encoding: "utf-8",
     })
       .then((jsonData) => {
-        this.products = JSON.parse(jsonData);
-        const result: string[] = searchMatches(
-          this.products,
-          searchWord as string
-        );
+        const products = JSON.parse(jsonData);
+        const result: string[] = searchMatches(products, searchWord as string);
 
         let data = result.filter((products: string) => {
           return products.match(
@@ -44,7 +40,7 @@ export default new (class ProductController {
       })
       .catch(() => {
         res.status(500).json({
-          message: `Ошибка в чтении dbCollection: ${this.dbCollection}`,
+          message: `Ошибка в чтении dbCollection: ${dbCollection}`,
           data: [],
         });
       });
