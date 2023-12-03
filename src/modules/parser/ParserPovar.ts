@@ -2,12 +2,11 @@ import needle from "needle";
 import * as cheerio from "cheerio";
 import tress from "tress";
 import fs from "fs";
-import { IReceipt } from "@/types/receipts";
-import { Compositions } from "@/types/compositions";
+import { IReceipt } from "@/controllers/Receipt/types";
 
 export default class Parser {
   public receipts: IReceipt[] = [];
-  private compositionList: Compositions = [];
+  private productList: string[] = [];
   private siteURL: string;
   private startURL: string;
   private nameJSON: string;
@@ -22,7 +21,7 @@ export default class Parser {
   private init() {
     const siteURL = this.siteURL;
     const receipts = this.receipts;
-    const compositionList = this.compositionList;
+    const productList = this.productList;
 
     const q = tress((link, done) => {
       needle("get", link as any)
@@ -57,7 +56,7 @@ export default class Parser {
             $(".ingredient").each(function () {
               const $composition = cheerio.load($(this).html());
               const item = $composition(".name").text().trim();
-              compositionList.push(item);
+              productList.push(item);
               receipt.compositions.push(item);
             });
 
@@ -75,14 +74,14 @@ export default class Parser {
 
     q.success = () => {
       fs.writeFileSync(
-        `./src/db_receipts/${this.nameJSON}.json`,
+        `./src/db/${this.nameJSON}.json`,
         JSON.stringify(receipts, null, 4)
       );
-      const uniqCompisitionList = [...new Set(compositionList)].sort((a, b) =>
+      const uniqCompisitionList = [...new Set(productList)].sort((a, b) =>
         a.localeCompare(b)
       );
       fs.writeFileSync(
-        `./src/db_receipts/compositions_${this.nameJSON}.json`,
+        `./src/db/products_${this.nameJSON}.json`,
         JSON.stringify(Array.from(uniqCompisitionList), null, 4)
       );
     };
