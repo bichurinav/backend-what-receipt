@@ -2,7 +2,7 @@ import needle from "needle";
 import * as cheerio from "cheerio";
 import tress from "tress";
 import fs from "fs";
-import { IReceipt } from "@/controllers/Receipt/types";
+import { IReceipt } from "../../controllers/Receipt/types";
 
 export default class Parser {
   public receipts: IReceipt[] = [];
