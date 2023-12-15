@@ -74,14 +74,14 @@ export default class Parser {
 
     q.success = () => {
       fs.writeFileSync(
-        `./src/db/${this.nameJSON}.json`,
+        `./db/${this.nameJSON}.json`,
         JSON.stringify(receipts, null, 4)
       );
       const uniqCompisitionList = [...new Set(productList)].sort((a, b) =>
         a.localeCompare(b)
       );
       fs.writeFileSync(
-        `./src/db/products_${this.nameJSON}.json`,
+        `./db/products_${this.nameJSON}.json`,
         JSON.stringify(Array.from(uniqCompisitionList), null, 4)
       );
     };
