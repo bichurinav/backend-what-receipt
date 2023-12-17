@@ -81,7 +81,7 @@ export default new (class ReceiptController {
       }
 
       throw new Error(
-        `Список продуктов неккоректен: ${JSON.stringify(userCompositions)}`
+        `Список продуктов неверный: ${JSON.stringify(userCompositions)}`
       );
     } catch (err) {
       res.status(500).json({
