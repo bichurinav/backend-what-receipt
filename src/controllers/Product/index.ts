@@ -7,15 +7,18 @@ const COLLECTION_NAME = "products";
 export default new (class ProductController {
   async getProducts(req: Request, res: Response) {
     try {
-      const { search: searchWord } = req.query;
+      const { search } = req.query;
 
-      if (!searchWord) {
+      if (!search) {
         res.status(400).json({
           message: `Не был передан query param: ?search`,
           data: [],
         });
         return;
       }
+
+      let searchWord: Buffer | string = Buffer.from(search as string, "base64");
+      searchWord = searchWord.toString();
 
       const products = await getCollectionDB(COLLECTION_NAME);
 

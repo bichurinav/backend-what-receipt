@@ -14,7 +14,7 @@ const categories: string[] = [
 export default new (class ReceiptController {
   async getReceipts(req: Request, res: Response) {
     try {
-      const { compositions, mode } = req.query;
+      const { compositions: compisitionList, mode } = req.query;
       const { category } = req.params;
 
       if (!categories.includes(category)) {
@@ -25,9 +25,14 @@ export default new (class ReceiptController {
         return;
       }
 
-      const userCompositions = !Array.isArray(compositions)
-        ? [compositions]
-        : compositions;
+      let userCompositions = !Array.isArray(compisitionList)
+        ? [compisitionList]
+        : compisitionList;
+
+      userCompositions = userCompositions.map((el) => {
+        let product = Buffer.from(el as string, "base64");
+        return product.toString();
+      });
 
       if (Boolean(userCompositions[0])) {
         const receipts = await getCollectionDB(category);
@@ -72,7 +77,12 @@ export default new (class ReceiptController {
           .splice(0, 60);
 
         res.status(200).json({ data, total: data.length });
+        return;
       }
+
+      throw new Error(
+        `Список продуктов неккоректен: ${JSON.stringify(userCompositions)}`
+      );
     } catch (err) {
       res.status(500).json({
         message: err,
